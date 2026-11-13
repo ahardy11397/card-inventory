@@ -1,0 +1,9 @@
+# Generated build artifacts
+build/
+
+# User inventory data (lives next to the executable, not in version control)
+cards.csv
+cards.csv.bak
+
+# User card pictures
+photos/

@@ -1,0 +1,59 @@
+use storage
+use commands
+
+if argument count < 2:
+    print "usage: cards <command> [args...]"
+    exit with code 1
+
+define cmd as argument 1
+
+if cmd == "help":
+    define rc_help as cmd_help()
+    exit with code rc_help
+
+if cmd == "init":
+    define rc_init as cmd_init()
+    exit with code rc_init
+
+if not (file exists "cards.csv"):
+    print "no cards.csv — run: cards init"
+    exit with code 1
+
+if cmd == "add":
+    define rc_add as cmd_add()
+    exit with code rc_add
+
+if cmd == "list":
+    define rc_list as cmd_list()
+    exit with code rc_list
+
+if cmd == "show":
+    define rc_show as cmd_show()
+    exit with code rc_show
+
+if cmd == "set":
+    define rc_set as cmd_set()
+    exit with code rc_set
+
+if cmd == "remove":
+    define rc_remove as cmd_remove()
+    exit with code rc_remove
+
+if cmd == "photo":
+    define rc_photo as cmd_photo()
+    exit with code rc_photo
+
+if cmd == "photos":
+    define rc_photos as cmd_photos()
+    exit with code rc_photos
+
+if cmd == "check":
+    define rc_check as cmd_check()
+    exit with code rc_check
+
+if cmd == "stats":
+    define rc_stats as cmd_stats()
+    exit with code rc_stats
+
+print "unknown command: " + cmd
+exit with code 1

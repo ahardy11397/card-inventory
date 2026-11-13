@@ -1,0 +1,319 @@
+use storage
+
+function cmd_help() -> Int:
+    print "cards - baseball card inventory CLI"
+    print ""
+    print "Commands:"
+    print "  cards help"
+    print "      Show this help summary"
+    print "  cards init"
+    print "      Initialize a new cards.csv file"
+    print "  cards add <year> <brand> <player> <condition> <quantity> [notes]"
+    print "      Add a new card to inventory"
+    print "  cards list [player]"
+    print "      List cards in inventory, optionally filtered by player name"
+    print "  cards show <id>"
+    print "      Show all details for a card"
+    print "  cards set <id> <field> <value>"
+    print "      Update a field (year, brand, player, condition, quantity, photo, notes)"
+    print "  cards remove <id>"
+    print "      Remove a card from inventory"
+    print "  cards photo <id> <path>"
+    print "      Link a photo file to a card; files outside photos/ are copied into photos/"
+    print "  cards photos"
+    print "      Report status of all linked photo files"
+    print "  cards check"
+    print "      Verify all photo links and display inventory summary"
+    print "  cards stats"
+    print "      Display inventory statistics"
+    print ""
+    print "Note: Values must not contain commas or newlines."
+    return 0
+
+function cmd_init() -> Int:
+    if file exists "cards.csv":
+        print "already exists"
+        return 0
+    write file "cards.csv" with "id,year,brand,player,condition,quantity,photo,notes\n"
+    return 0
+
+function cmd_add() -> Int:
+    if argument count < 7:
+        print "usage: cards add <year> <brand> <player> <condition> <quantity> [notes]"
+        return 1
+    define year as argument 2
+    define brand as argument 3
+    define player as argument 4
+    define condition as argument 5
+    define quantity as argument 6
+    define notes as ""
+    if argument count > 7:
+        define notes_parts as empty List<String>
+        for i from 7 to argument count - 1:
+            append argument i to notes_parts
+        set notes to join notes_parts with " "
+    if has_bad_chars(year) or has_bad_chars(brand) or has_bad_chars(player) or has_bad_chars(condition) or has_bad_chars(quantity) or has_bad_chars(notes):
+        print "error: values must not contain commas or newlines"
+        return 1
+    if length of string year != 4 or not is_all_digits(year):
+        print "error: year must be 4 digits"
+        return 1
+    if not is_valid_quantity(quantity):
+        print "error: quantity must be a non-negative integer"
+        return 1
+    define qty_int as integer value of quantity or else 0
+    define canon_qty as text of qty_int
+    define cards as read_cards()
+    define next_id as next_card_id(cards)
+    define new_card as Card(id=next_id, year=year, brand=brand, player=player, condition=condition, quantity=canon_qty, photo="", notes=notes)
+    append new_card to cards
+    define rc as save_cards(cards)
+    print "added " + next_id
+    return 0
+
+function cmd_list() -> Int:
+    define filter as ""
+    if argument count > 2:
+        set filter to argument 2
+    define cards as read_cards()
+    define matched as empty List<Card>
+    for each c in cards:
+        if length of string filter == 0 or c.player contains filter:
+            append c to matched
+    if length of matched == 0:
+        print "0 cards"
+        return 0
+    print "id  year  player  brand  condition  qty  photo"
+    for each c in matched:
+        define line as c.id + "  " + c.year + "  " + c.player + "  " + c.brand + "  " + c.condition + "  qty " + c.quantity
+        if length of string c.photo > 0:
+            set line to line + "  *"
+        print line
+    return 0
+
+function cmd_show() -> Int:
+    if argument count < 3:
+        print "usage: cards show <id>"
+        return 1
+    define target_id as argument 2
+    define cards as read_cards()
+    for each c in cards:
+        if c.id == target_id:
+            print "id: " + c.id
+            print "year: " + c.year
+            print "brand: " + c.brand
+            print "player: " + c.player
+            print "condition: " + c.condition
+            print "quantity: " + c.quantity
+            print "photo: " + c.photo
+            print "notes: " + c.notes
+            return 0
+    print "not found: " + target_id
+    return 1
+
+function cmd_set() -> Int:
+    if argument count < 4:
+        print "usage: cards set <id> <field> <value>"
+        return 1
+    define target_id as argument 2
+    define field as argument 3
+    if field != "year" and field != "brand" and field != "player" and field != "condition" and field != "quantity" and field != "photo" and field != "notes":
+        print "unknown field: " + field
+        return 1
+    define val as ""
+    if argument count >= 5:
+        if field == "notes":
+            define notes_parts as empty List<String>
+            for i from 4 to argument count - 1:
+                append argument i to notes_parts
+            set val to join notes_parts with " "
+        else:
+            set val to argument 4
+    if has_bad_chars(val):
+        print "error: values must not contain commas or newlines"
+        return 1
+    if field == "quantity":
+        if not is_valid_quantity(val):
+            print "error: quantity must be a non-negative integer"
+            return 1
+        define qty_int as integer value of val or else 0
+        set val to text of qty_int
+    if field == "year":
+        if length of string val != 4 or not is_all_digits(val):
+            print "error: year must be 4 digits"
+            return 1
+    define cards as read_cards()
+    define found as false
+    define updated_cards as empty List<Card>
+    for each c in cards:
+        if c.id == target_id:
+            set found to true
+            define u_year as c.year
+            define u_brand as c.brand
+            define u_player as c.player
+            define u_condition as c.condition
+            define u_quantity as c.quantity
+            define u_photo as c.photo
+            define u_notes as c.notes
+            if field == "year":
+                set u_year to val
+            if field == "brand":
+                set u_brand to val
+            if field == "player":
+                set u_player to val
+            if field == "condition":
+                set u_condition to val
+            if field == "quantity":
+                set u_quantity to val
+            if field == "photo":
+                set u_photo to val
+            if field == "notes":
+                set u_notes to val
+            append Card(id=c.id, year=u_year, brand=u_brand, player=u_player, condition=u_condition, quantity=u_quantity, photo=u_photo, notes=u_notes) to updated_cards
+        else:
+            append c to updated_cards
+    if not found:
+        print "not found: " + target_id
+        return 1
+    define rc as save_cards(updated_cards)
+    print "updated " + target_id + " " + field
+    return 0
+
+function cmd_remove() -> Int:
+    if argument count < 3:
+        print "usage: cards remove <id>"
+        return 1
+    define target_id as argument 2
+    define cards as read_cards()
+    define found as false
+    define kept as empty List<Card>
+    for each c in cards:
+        if c.id == target_id:
+            set found to true
+        else:
+            append c to kept
+    if not found:
+        print "not found: " + target_id
+        return 1
+    define rc as save_cards(kept)
+    print "removed " + target_id
+    return 0
+
+function photo_filename(photo_path: String) -> String:
+    define parts as split photo_path by "/"
+    define name as ""
+    for each p in parts:
+        set name to p
+    return name
+
+function photo_base(name: String) -> String:
+    define parts as split name by "."
+    if length of parts == 1:
+        return name
+    remove last item from parts
+    return join parts with "."
+
+function photo_ext(name: String) -> String:
+    define parts as split name by "."
+    if length of parts == 1:
+        return ""
+    define ext as ""
+    for each p in parts:
+        set ext to p
+    return ext
+
+function cmd_photo() -> Int:
+    if argument count < 4:
+        print "usage: cards photo <id> <path>"
+        return 1
+    define target_id as argument 2
+    define photo_path as argument 3
+    if not (file exists photo_path):
+        print "no such file: " + photo_path
+        return 1
+    if has_bad_chars(photo_path):
+        print "error: values must not contain commas or newlines"
+        return 1
+    define cards as read_cards()
+    define found as false
+    for each c in cards:
+        if c.id == target_id:
+            set found to true
+    if not found:
+        print "not found: " + target_id
+        return 1
+    define stored as photo_path
+    define copied as false
+    if not (photo_path starts with "photos/"):
+        set copied to true
+        create directory "photos"
+        define filename as photo_filename(photo_path)
+        define base as photo_base(filename)
+        define ext as photo_ext(filename)
+        define suffix as ""
+        if length of string ext > 0:
+            set suffix to "." + ext
+        define dest as "photos/" + filename
+        define n as 0
+        while file exists dest:
+            set n to n + 1
+            set dest to "photos/" + base + "_" + text of n + suffix
+        copy file photo_path to dest
+        set stored to dest
+    define updated_cards as empty List<Card>
+    for each c in cards:
+        if c.id == target_id:
+            append Card(id=c.id, year=c.year, brand=c.brand, player=c.player, condition=c.condition, quantity=c.quantity, photo=stored, notes=c.notes) to updated_cards
+        else:
+            append c to updated_cards
+    define rc as save_cards(updated_cards)
+    if copied:
+        print "organized " + stored + " to " + target_id
+        return 0
+    print "linked " + stored + " to " + target_id
+    return 0
+
+function cmd_photos() -> Int:
+    define cards as read_cards()
+    for each c in cards:
+        if length of string c.photo > 0:
+            if file exists c.photo:
+                print c.id + "  OK"
+            else:
+                print c.id + "  MISSING  " + c.photo
+    return 0
+
+function cmd_check() -> Int:
+    define cards as read_cards()
+    define entries as length of cards
+    define with_photos as 0
+    define missing as 0
+    for each c in cards:
+        if length of string c.photo > 0:
+            set with_photos to with_photos + 1
+            if file exists c.photo:
+                print c.id + "  OK"
+            else:
+                set missing to missing + 1
+                print c.id + "  MISSING  " + c.photo
+    print text of entries + " entries, " + text of with_photos + " with photos, " + text of missing + " missing files"
+    if missing > 0:
+        return 1
+    return 0
+
+function cmd_stats() -> Int:
+    define cards as read_cards()
+    define entries as length of cards
+    define total_cards as 0
+    define with_photos as 0
+    for each c in cards:
+        define qty as integer value of c.quantity
+        set total_cards to total_cards + qty
+        if length of string c.photo > 0:
+            set with_photos to with_photos + 1
+    define without_photos as entries - with_photos
+    print "entries: " + text of entries
+    print "total cards: " + text of total_cards
+    print "with photos: " + text of with_photos
+    print "without photos: " + text of without_photos
+    return 0

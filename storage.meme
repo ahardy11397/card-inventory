@@ -1,0 +1,82 @@
+record Card:
+    id: String
+    year: String
+    brand: String
+    player: String
+    condition: String
+    quantity: String
+    photo: String
+    notes: String
+
+function is_digit(ch: String) -> Bool:
+    if is digit ch:
+        return true
+    return false
+
+function is_all_digits(s: String) -> Bool:
+    if length of string s == 0:
+        return false
+    for i from 0 to length of string s - 1:
+        define ch as char at i of s
+        if not is_digit(ch):
+            return false
+    return true
+
+function is_valid_quantity(q: String) -> Bool:
+    if not is_all_digits(q):
+        return false
+    if length of string q > 1:
+        define first as char at 0 of q
+        if first == "0":
+            return false
+    return true
+
+function has_bad_chars(s: String) -> Bool:
+    if s contains ",":
+        return true
+    if s contains "\n":
+        return true
+    return false
+
+function pad_id(n: Int) -> String:
+    define raw as text of n
+    define padded as raw
+    while length of string padded < 6:
+        set padded to "0" + padded
+    return padded
+
+function next_card_id(cards: List<Card>) -> String:
+    define max_id as 0
+    for each c in cards:
+        define cur as integer value of c.id
+        if cur > max_id:
+            set max_id to cur
+    return pad_id(max_id + 1)
+
+function read_cards() -> List<Card>:
+    define content as read string from file "cards.csv"
+    define lines as split content by "\n"
+    define cards as empty List<Card>
+    for each index i item raw_line in lines:
+        if i == 0:
+            define hdr_parts as split raw_line by ","
+            if length of hdr_parts != 8:
+                print "corrupt row at line 1: expected 8 fields, got " + text of length of hdr_parts
+                exit with code 2
+        else:
+            if not (i == length of lines - 1 and length of string raw_line == 0):
+                define parts as split raw_line by ","
+                if length of parts != 8:
+                    print "corrupt row at line " + text of (i + 1) + ": expected 8 fields, got " + text of length of parts
+                    exit with code 2
+                define c as Card(id=parts[0], year=parts[1], brand=parts[2], player=parts[3], condition=parts[4], quantity=parts[5], photo=parts[6], notes=parts[7])
+                append c to cards
+    return cards
+
+function save_cards(cards: List<Card>) -> Int:
+    define out as "id,year,brand,player,condition,quantity,photo,notes\n"
+    for each c in cards:
+        define row as c.id + "," + c.year + "," + c.brand + "," + c.player + "," + c.condition + "," + c.quantity + "," + c.photo + "," + c.notes + "\n"
+        set out to out + row
+    write file "cards.csv" with out
+    return 0
